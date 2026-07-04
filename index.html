@@ -92,7 +92,15 @@
       <div id="saveMsg"></div>
     </div>
     <div class="card">
-      <div style="display:flex;align-items:center"><h2 style="margin:0">Secretos guardados</h2><div class="spacer"></div><button id="refresh" class="ghost mini">Actualizar</button></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <h2 style="margin:0">Secretos guardados</h2><span id="count" class="muted"></span>
+        <div class="spacer"></div>
+        <button id="expEnc" class="ghost mini" title="Copia cifrada con tu clave maestra (incluye los valores)">Copia cifrada</button>
+        <button id="expCsv" class="ghost mini" title="Inventario sin contraseñas (CSV)">Inventario CSV</button>
+        <button id="refresh" class="ghost mini">Actualizar</button>
+      </div>
+      <div class="field" style="margin:12px 0 2px"><input id="search" placeholder="Buscar: nombre, usuario, URL, ámbito, notas…" autocomplete="off"></div>
+      <div id="expMsg"></div>
       <div id="list" style="margin-top:8px"></div>
     </div>
   </section>
@@ -151,19 +159,50 @@ $('save').onclick=async()=>{
   msg($('saveMsg'),'Guardado y cifrado ✔','ok'); loadList();
 };
 $('refresh').onclick=loadList;
+let ALL=[];
+const norm=s=>(s==null?'':String(s)).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const esc=s=>(s==null?'':String(s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
 async function loadList(){
   const box=$('list'); box.innerHTML='<p class="muted">Cargando…</p>';
   const {data,error}=await db.rpc('sh_listar_secretos',{p_password:MASTER});
   if(error){ box.innerHTML=`<div class="msg err">${error.message}</div>`; return; }
-  if(!data||!data.length){ box.innerHTML='<p class="muted">Aún no hay secretos guardados.</p>'; return; }
+  ALL=data||[]; render();
+}
+$('search').oninput=render;
+function render(){
+  const box=$('list'), q=norm($('search').value.trim());
+  const list=!q?ALL:ALL.filter(s=>norm([s.nombre,s.usuario,s.url,s.notas,s.categoria,s.ambito].join(' ')).includes(q));
+  $('count').textContent=ALL.length?(q?`${list.length} / ${ALL.length}`:`${ALL.length}`):'';
+  if(!ALL.length){ box.innerHTML='<p class="muted">Aún no hay secretos guardados.</p>'; return; }
+  if(!list.length){ box.innerHTML='<p class="muted">Sin coincidencias.</p>'; return; }
   let html='',group=null;
-  for(const s of data){ const amb=s.ambito||'Sin ámbito';
-    if(amb!==group){group=amb;html+=`<div class="group-title">${amb}</div>`;}
-    const meta=[s.usuario,s.url,s.notas].filter(Boolean).join(' · ');
-    html+=`<div class="list-item"><div class="name">${s.nombre}${s.categoria?`<span class="badge">${s.categoria}</span>`:''}</div>${meta?`<div class="li-meta">${meta}</div>`:''}</div>`;
+  for(const s of list){ const amb=s.ambito||'Sin ámbito';
+    if(amb!==group){group=amb;html+=`<div class="group-title">${esc(amb)}</div>`;}
+    const meta=[s.usuario,s.url,s.notas].filter(Boolean).map(esc).join(' · ');
+    html+=`<div class="list-item"><div class="name">${esc(s.nombre)}${s.categoria?`<span class="badge">${esc(s.categoria)}</span>`:''}</div>${meta?`<div class="li-meta">${meta}</div>`:''}</div>`;
   }
   box.innerHTML=html;
 }
+function dl(name,blob){ const u=URL.createObjectURL(blob),a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
+const today=()=>new Date().toISOString().slice(0,10);
+
+$('expCsv').onclick=()=>{
+  if(!ALL.length) return;
+  const cols=['nombre','categoria','ambito','usuario','url','notas'], qf=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const rows=[cols.join(',')].concat(ALL.map(s=>cols.map(c=>qf(s[c])).join(',')));
+  dl(`secureheaven-inventario-${today()}.csv`, new Blob(['﻿'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'}));
+  msg($('expMsg'),`Inventario descargado (${ALL.length} entradas, sin contraseñas) ✔`,'ok');
+};
+$('expEnc').onclick=async()=>{
+  const b=$('expEnc'), t=b.textContent; b.disabled=true; b.textContent='Cifrando…'; msg($('expMsg'),'Generando copia cifrada…','ok');
+  const {data,error}=await db.rpc('sh_exportar',{p_password:MASTER});
+  b.disabled=false; b.textContent=t;
+  if(error){ return msg($('expMsg'),'No se pudo exportar: '+error.message,'err'); }
+  const bin=Uint8Array.from(atob(data),c=>c.charCodeAt(0));
+  dl(`secureheaven-backup-${today()}.pgp`, new Blob([bin],{type:'application/pgp-encrypted'}));
+  msg($('expMsg'),'Copia cifrada descargada ✔ — se abre con tu clave maestra (gpg -d fichero.pgp)','ok');
+};
 function openApp(){ show('app'); loadList(); }
 boot();
 </script>
