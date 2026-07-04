@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>SecureHeaven — Bóveda El Método 360</title>
+<style>
+  :root{
+    --burdeos:#A32834; --burdeos-d:#7d1e28; --crema:#EDE9E3; --tinta:#1f1f1f;
+    --gris:#6b6b6b; --linea:#ddd6cd; --ok:#1c7a4a; --err:#b3261e; --card:#fff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"DM Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:var(--crema);color:var(--tinta);line-height:1.45}
+  a{color:var(--burdeos)}
+  .wrap{max-width:760px;margin:0 auto;padding:24px 18px 60px}
+  header.top{display:flex;align-items:center;gap:12px;padding:18px 0 6px}
+  header.top .lock{font-size:26px}
+  header.top h1{font-size:20px;margin:0;letter-spacing:.2px}
+  header.top .sub{color:var(--gris);font-size:13px;margin-top:2px}
+  .spacer{flex:1}
+  button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:11px 16px;
+    background:var(--burdeos);color:#fff;font-weight:600}
+  button:hover{background:var(--burdeos-d)}
+  button.ghost{background:transparent;color:var(--burdeos);border:1px solid var(--burdeos);font-weight:600}
+  button.mini{padding:6px 10px;font-size:13px}
+  input,select,textarea{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--linea);
+    border-radius:8px;background:#fff;color:var(--tinta)}
+  textarea{min-height:64px;resize:vertical}
+  label{display:block;font-size:13px;font-weight:600;margin:0 0 5px;color:#333}
+  .card{background:var(--card);border:1px solid var(--linea);border-radius:12px;padding:20px;margin:16px 0;
+    box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .field{margin-bottom:12px}
+  .muted{color:var(--gris);font-size:13px}
+  .hidden{display:none!important}
+  .msg{padding:10px 12px;border-radius:8px;font-size:14px;margin:10px 0}
+  .msg.ok{background:#e7f4ec;color:var(--ok)}
+  .msg.err{background:#fbe9e7;color:var(--err)}
+  .pwrow{display:flex;gap:8px}
+  .pwrow input{flex:1}
+  h2{font-size:16px;margin:0 0 4px}
+  .list-item{border:1px solid var(--linea);border-radius:10px;padding:12px 14px;margin:10px 0;background:#fff}
+  .list-item .name{font-weight:700}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;
+    background:#f1ece4;color:#6b5a3e;margin-left:6px;vertical-align:middle}
+  .li-meta{font-size:13px;color:var(--gris);margin-top:3px;word-break:break-word}
+  .group-title{font-size:13px;font-weight:700;color:var(--burdeos);text-transform:uppercase;
+    letter-spacing:.5px;margin:18px 0 4px}
+  footer{color:var(--gris);font-size:12px;text-align:center;margin-top:30px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="lock">🔐</span>
+    <div>
+      <h1>SecureHeaven</h1>
+      <div class="sub">Bóveda de secretos · El Método 360</div>
+    </div>
+    <div class="spacer"></div>
+    <button id="logout" class="ghost mini hidden">Salir</button>
+  </header>
+
+  <!-- LOGIN -->
+  <section id="auth" class="card">
+    <h2>Entrar</h2>
+    <p class="muted">Te enviamos un código de un solo uso a tu correo. Sin contraseñas.</p>
+    <div id="step-email">
+      <div class="field">
+        <label>Correo autorizado</label>
+        <input id="email" type="email" value="elmetodo360@gmail.com" autocomplete="email">
+      </div>
+      <button id="sendCode">Enviar código</button>
+    </div>
+    <div id="step-code" class="hidden">
+      <div class="field">
+        <label>Código recibido por correo</label>
+        <input id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="6 dígitos">
+      </div>
+      <button id="verifyCode">Entrar</button>
+      <button id="backEmail" class="ghost mini" style="margin-left:8px">Cambiar correo</button>
+    </div>
+    <div id="authMsg"></div>
+  </section>
+
+  <!-- APP -->
+  <section id="app" class="hidden">
+    <div class="card">
+      <h2>Añadir secreto</h2>
+      <p class="muted">Pega aquí el token/clave/contraseña. Se cifra al guardar; nadie lo ve en claro salvo Claude bajo tu petición.</p>
+      <div class="field">
+        <label>Nombre *</label>
+        <input id="f_nombre" placeholder="Ej.: Token API ManyChat">
+      </div>
+      <div class="field">
+        <label>Valor (secreto) *</label>
+        <div class="pwrow">
+          <input id="f_valor" type="password" placeholder="Pega aquí el token/clave">
+          <button type="button" id="togglePw" class="ghost mini">Ver</button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Categoría</label>
+          <select id="f_categoria">
+            <option value="">—</option>
+            <option>API Key</option><option>Token</option><option>Contraseña</option>
+            <option>Clave de servicio</option><option>Otro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Ámbito</label>
+          <select id="f_ambito">
+            <option value="">—</option>
+            <option>El Método 360</option><option>Casa Amparo / IGI</option>
+            <option>Starlite</option><option>Personal</option><option>Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Usuario / Email</label><input id="f_usuario" placeholder="opcional"></div>
+        <div class="field"><label>URL / Dónde se usa</label><input id="f_url" placeholder="opcional"></div>
+      </div>
+      <div class="field"><label>Notas</label><textarea id="f_notas" placeholder="opcional"></textarea></div>
+      <button id="save">Guardar cifrado</button>
+      <div id="saveMsg"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center">
+        <h2 style="margin:0">Secretos guardados</h2>
+        <div class="spacer" style="flex:1"></div>
+        <button id="refresh" class="ghost mini">Actualizar</button>
+      </div>
+      <div id="list" style="margin-top:8px"><p class="muted">Cargando…</p></div>
+    </div>
+  </section>
+
+  <footer>El Método 360 · SecureHeaven · Los valores se guardan cifrados en Supabase Vault.</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SB_URL = 'https://cugwutryigaxitjievnq.supabase.co';
+const SB_KEY = 'sb_publishable_f3nh3hZPusqxC4x_Eaqruw_9iIapNBy';
+const db = supabase.createClient(SB_URL, SB_KEY);
+const $ = id => document.getElementById(id);
+function msg(el, text, kind){ el.innerHTML = text ? `<div class="msg ${kind||'ok'}">${text}</div>` : ''; }
+
+// ---- Auth ----
+$('sendCode').onclick = async () => {
+  const email = $('email').value.trim();
+  msg($('authMsg'),'Enviando código…','ok');
+  const { error } = await db.auth.signInWithOtp({ email, options:{ shouldCreateUser:true } });
+  if(error){ return msg($('authMsg'), error.message, 'err'); }
+  $('step-email').classList.add('hidden'); $('step-code').classList.remove('hidden');
+  msg($('authMsg'),'Código enviado. Revisa tu correo.','ok');
+};
+$('backEmail').onclick = () => { $('step-code').classList.add('hidden'); $('step-email').classList.remove('hidden'); msg($('authMsg'),''); };
+$('verifyCode').onclick = async () => {
+  const email = $('email').value.trim(); const token = $('code').value.trim();
+  msg($('authMsg'),'Verificando…','ok');
+  const { error } = await db.auth.verifyOtp({ email, token, type:'email' });
+  if(error){ return msg($('authMsg'), error.message, 'err'); }
+  showApp();
+};
+$('logout').onclick = async () => { await db.auth.signOut(); location.reload(); };
+
+// ---- App ----
+$('togglePw').onclick = () => { const i=$('f_valor'); i.type = i.type==='password'?'text':'password'; $('togglePw').textContent = i.type==='password'?'Ver':'Ocultar'; };
+
+$('save').onclick = async () => {
+  const p_nombre=$('f_nombre').value.trim(), p_valor=$('f_valor').value;
+  if(!p_nombre || !p_valor) return msg($('saveMsg'),'Nombre y valor son obligatorios.','err');
+  $('save').disabled=true; msg($('saveMsg'),'Guardando cifrado…','ok');
+  const { error } = await db.rpc('sh_guardar_secreto', {
+    p_nombre, p_valor,
+    p_categoria:$('f_categoria').value||null, p_ambito:$('f_ambito').value||null,
+    p_usuario:$('f_usuario').value.trim()||null, p_url:$('f_url').value.trim()||null,
+    p_notas:$('f_notas').value.trim()||null
+  });
+  $('save').disabled=false;
+  if(error) return msg($('saveMsg'), error.message, 'err');
+  ['f_nombre','f_valor','f_usuario','f_url','f_notas'].forEach(k=>$(k).value='');
+  $('f_categoria').value=''; $('f_ambito').value='';
+  msg($('saveMsg'),'Guardado y cifrado ✔','ok'); loadList();
+};
+
+$('refresh').onclick = loadList;
+async function loadList(){
+  const { data, error } = await db.rpc('sh_listar_secretos');
+  const box=$('list');
+  if(error){ box.innerHTML=`<div class="msg err">${error.message}</div>`; return; }
+  if(!data || !data.length){ box.innerHTML='<p class="muted">Aún no hay secretos guardados.</p>'; return; }
+  let html=''; let group=null;
+  for(const s of data){
+    const amb = s.ambito || 'Sin ámbito';
+    if(amb!==group){ group=amb; html+=`<div class="group-title">${amb}</div>`; }
+    const meta=[s.usuario, s.url, s.notas].filter(Boolean).join(' · ');
+    html+=`<div class="list-item"><div class="name">${s.nombre}${s.categoria?`<span class="badge">${s.categoria}</span>`:''}</div>${meta?`<div class="li-meta">${meta}</div>`:''}</div>`;
+  }
+  box.innerHTML=html;
+}
+
+async function showApp(){
+  $('auth').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden');
+  loadList();
+}
+// sesión persistente
+(async () => { const { data } = await db.auth.getSession(); if(data.session) showApp(); })();
+</script>
+</body>
+</html>
