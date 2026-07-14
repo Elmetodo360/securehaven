@@ -38,6 +38,8 @@
   .list-item .name{font-weight:700}
   .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#f1ece4;color:#6b5a3e;margin-left:6px}
   .li-meta{font-size:13px;color:var(--gris);margin-top:3px;word-break:break-word}
+  .li-actions{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .sh-val{flex:1 1 100%;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;margin-top:2px}
   .group-title{font-size:13px;font-weight:700;color:var(--burdeos);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 4px}
   footer{color:var(--gris);font-size:12px;text-align:center;margin-top:30px}
 </style>
@@ -74,7 +76,7 @@
   <section id="app" class="hidden">
     <div class="card">
       <h2>Añadir secreto</h2>
-      <p class="muted">Pega el token/clave/contraseña. Se cifra al guardar; nadie lo ve en claro salvo Claude cuando se lo pidas.</p>
+      <p class="muted">Pega el token/clave/contraseña. Se cifra al guardar; solo se muestra con tu clave maestra (botón Ver) o cuando se lo pidas a Claude.</p>
       <div class="field"><label>Nombre *</label><input id="f_nombre" placeholder="Ej.: Token API ManyChat"></div>
       <div class="field"><label>Valor (secreto) *</label>
         <div class="pwrow"><input id="f_valor" type="password" placeholder="Pega aquí el token/clave"><button type="button" id="togglePw" class="ghost mini">Ver</button></div>
@@ -99,6 +101,7 @@
         <button id="expCsv" class="ghost mini" title="Inventario sin contraseñas (CSV)">Inventario CSV</button>
         <button id="refresh" class="ghost mini">Actualizar</button>
       </div>
+      <p class="muted" style="margin:6px 0 0">Pulsa <b>Ver</b> en una entrada para mostrar su valor (protegido por tu clave maestra) o <b>Copiar</b> para llevarlo al portapapeles.</p>
       <div class="field" style="margin:12px 0 2px"><input id="search" placeholder="Buscar: nombre, usuario, URL, ámbito, notas…" autocomplete="off"></div>
       <div id="expMsg"></div>
       <div id="list" style="margin-top:8px"></div>
@@ -161,7 +164,7 @@ $('save').onclick=async()=>{
 $('refresh').onclick=loadList;
 let ALL=[];
 const norm=s=>(s==null?'':String(s)).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-const esc=s=>(s==null?'':String(s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 async function loadList(){
   const box=$('list'); box.innerHTML='<p class="muted">Cargando…</p>';
@@ -180,10 +183,37 @@ function render(){
   for(const s of list){ const amb=s.ambito||'Sin ámbito';
     if(amb!==group){group=amb;html+=`<div class="group-title">${esc(amb)}</div>`;}
     const meta=[s.usuario,s.url,s.notas].filter(Boolean).map(esc).join(' · ');
-    html+=`<div class="list-item"><div class="name">${esc(s.nombre)}${s.categoria?`<span class="badge">${esc(s.categoria)}</span>`:''}</div>${meta?`<div class="li-meta">${meta}</div>`:''}</div>`;
+    html+=`<div class="list-item"><div class="name">${esc(s.nombre)}${s.categoria?`<span class="badge">${esc(s.categoria)}</span>`:''}</div>${meta?`<div class="li-meta">${meta}</div>`:''}<div class="li-actions"><button type="button" class="ghost mini sh-ver" data-id="${esc(s.id)}">Ver</button><button type="button" class="ghost mini sh-copy" data-id="${esc(s.id)}">Copiar</button><input class="sh-val hidden" data-val-for="${esc(s.id)}" readonly></div></div>`;
   }
   box.innerHTML=html;
 }
+
+// Ver / Copiar el valor (descifrado por la RPC, protegido por la clave maestra)
+$('list').addEventListener('click', async (e)=>{
+  const ver=e.target.closest('.sh-ver'), cop=e.target.closest('.sh-copy');
+  if(!ver && !cop) return;
+  const id=(ver||cop).dataset.id;
+  if(ver){
+    const inp=$('list').querySelector('.sh-val[data-val-for="'+id+'"]');
+    if(inp && inp.dataset.shown==='1'){ inp.classList.add('hidden'); inp.value=''; inp.dataset.shown='0'; ver.textContent='Ver'; return; }
+    ver.disabled=true; ver.textContent='…';
+    const {data,error}=await db.rpc('sh_ver_secreto',{p_password:MASTER,p_id:id});
+    ver.disabled=false;
+    if(error){ ver.textContent='Ver'; if(inp){inp.classList.remove('hidden'); inp.value='Error: '+error.message; inp.dataset.shown='1';} return; }
+    ver.textContent='Ocultar';
+    if(inp){ inp.value=(data==null?'(vacío)':data); inp.classList.remove('hidden'); inp.dataset.shown='1'; inp.focus(); inp.select(); }
+  } else if(cop){
+    cop.disabled=true; const t=cop.textContent; cop.textContent='…';
+    const {data,error}=await db.rpc('sh_ver_secreto',{p_password:MASTER,p_id:id});
+    cop.disabled=false;
+    if(error){ cop.textContent='Error'; setTimeout(()=>cop.textContent=t,1800); return; }
+    let done=false;
+    try{ await navigator.clipboard.writeText(data==null?'':data); done=true; }catch(_){}
+    cop.textContent=done?'Copiado ✔':'No se pudo';
+    setTimeout(()=>cop.textContent=t,1800);
+  }
+});
+
 function dl(name,blob){ const u=URL.createObjectURL(blob),a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
 const today=()=>new Date().toISOString().slice(0,10);
 
